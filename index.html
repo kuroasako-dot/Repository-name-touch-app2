@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>幼児向けタッチ反応観察アプリ</title>
+    <style>
+        /* 基本スタイル */
+        :root {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --panel-bg: #1a1a1a;
+            --accent-color: #4CAF50;
+            --ui-bg: #f0f0f0;
+            --ui-text: #333333;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ヘッダー情報 */
+        #info-bar {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            text-align: center;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        /* メインの表示エリア */
+        #main-stage {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 20px;
+            gap: 40px;
+        }
+
+        .panel-container {
+            flex: 1;
+            max-width: 400px;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 画像パネルのデザイン */
+        .image-panel {
+            width: 100%;
+            height: 100%;
+            background-color: var(--panel-bg);
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.1s ease-out;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(255,255,255,0.05);
+        }
+
+        .image-panel img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        /* プレースホルダー表示用 */
+        .placeholder {
+            font-size: 4rem;
+        }
+
+        /* アニメーション：びょーん */
+        .bounce-animation {
+            transform: scale(1.15);
+        }
+
+        /* 試行終了時の無効化 */
+        .disabled {
+            opacity: 0.8;
+            cursor: default;
+        }
+
+        /* 管理者設定エリア */
+        #admin-area {
+            background-color: var(--ui-bg);
+            color: var(--ui-text);
+            padding: 10px;
+            max-height: 40vh;
+            overflow-y: auto;
+            border-radius: 15px 15px 0 0;
+        }
+
+        details summary {
+            padding: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            list-style: none;
+            background: #ddd;
+            border-radius: 10px;
+        }
+
+        .admin-content {
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .setting-group {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .setting-group h4 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            background-color: #666;
+            color: white;
+            cursor: pointer;
+            margin: 4px;
+        }
+
+        button.primary {
+            background-color: #2196F3;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        button.reset {
+            background-color: #f44336;
+        }
+
+        button:active {
+            opacity: 0.7;
+        }
+
+        /* ログ表示 */
+        #log-container {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            background: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: scroll;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 4px;
+            text-align: left;
+        }
+
+        /* モバイル対応調整 */
+        @media (max-width: 600px) {
+            #main-stage {
+                flex-direction: column;
+                gap: 20px;
+            }
+            .panel-container {
+                max-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="info-bar">
+    <div>モード: <span id="display-mode">-</span></div>
+    <div>試行: <span id="display-trial">1</span></div>
+    <div>正反応: <span id="display-correct-count">0</span></div>
+</div>
+
+<div id="main-stage">
+    <div class="panel-container">
+        <div id="left-panel" class="image-panel" onclick="onTap('left')"></div>
+    </div>
+    <div class="panel-container">
+        <div id="right-panel" class="image-panel" onclick="onTap('right')"></div>
+    </div>
+</div>
+
+<div id="admin-area">
+    <details>
+        <summary>管理者設定・ログ</summary>
+        <div class="admin-content">
+            
+            <div class="setting-group">
+                <h4>モード設定</h4>
+                <button onclick="setMode('free')">自由タップ</button>
+                <button onclick="setMode('trial')">1試行1反応</button>
+                <div id="next-btn-area" style="margin-top:10px;">
+                    <button class="primary" id="next-trial-btn" onclick="nextTrial()" disabled>つぎへ進む</button>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <h4>正反応ターゲット</h4>
+                <button onclick="setCorrectTarget('A')">お母さん</button>
+                <button onclick="setCorrectTarget('B')">風船</button>
+            </div>
+
+            <div class="setting-group">
+                <h4>ランダム化設定</h4>
+                <button onclick="setRandomMode('fixed')">位置固定</button>
+                <button onclick="setRandomMode('start')">開始時のみ</button>
+                <button onclick="setRandomMode('every')">毎試行</button>
+            </div>
+
+            <div class="setting-group">
+                <h4>システム</h4>
+                <button id="toggle-sound-btn" onclick="toggleSound()">音: ON</button>
+                <button class="reset" onclick="resetApp()">全リセット</button>
+                <button onclick="copyLogJSON()">JSONコピー</button>
+            </div>
+
+            <div class="setting-group" style="grid-column: 1 / -1;">
+                <h4>統計とログ</h4>
+                <div id="stat-summary">お母さん: 0 | 風船: 0</div>
+                <div id="log-container">
+                    <table id="log-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>時刻</th>
+                                <th>配置(左|右)</th>
+                                <th>タップ</th>
+                                <th>結果</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </details>
+</div>
+
+<script>
+    // --- 設定エリア ---
+    // ここを書き換えることで画像や音を差し替えられます
+    const CONFIG = {
+        motherImageSrc: "",  // お母さんの画像URL (例: "mother.jpg")
+        balloonImageSrc: "", // 風船の画像URL (例: "balloon.png")
+        popSoundSrc: "",     // ポップ音のURL (例: "pop.mp3")
+        
+        // 初期設定
+        defaultCorrectTarget: "A", // A = お母さん, B = 風船
+        defaultRandomMode: "every", // "fixed", "start", "every"
+        defaultAppMode: "trial",    // "free" (自由), "trial" (1試行)
+        soundEnabled: true
+    };
+
+    // --- アプリの状態管理 ---
+    let state = {
+        appMode: CONFIG.defaultAppMode,
+        randomMode: CONFIG.defaultRandomMode,
+        correctTarget: CONFIG.defaultCorrectTarget,
+        soundEnabled: CONFIG.soundEnabled,
+        trialNumber: 1,
+        tapCounts: { A: 0, B: 0 },
+        isTrialFinished: false,
+        currentLayout: ["A", "B"], // [左, 右]
+        logs: [],
+        audioContext: null
+    };
+
+    // --- 初期化 ---
+    window.onload = () => {
+        applySettingsToUI();
+        if (state.randomMode !== 'fixed') {
+            shuffleLayout();
+        }
+        render();
+    };
+
+    function applySettingsToUI() {
+        document.getElementById('display-mode').textContent = state.appMode === 'free' ? '自由タップ' : '1試行1反応';
+        document.getElementById('toggle-sound-btn').textContent = `音: ${state.soundEnabled ? 'ON' : 'OFF'}`;
+        updateStatSummary();
+    }
+
+    // --- 表示の更新 ---
+    function render() {
+        const leftPanel = document.getElementById('left-panel');
+        const rightPanel = document.getElementById('right-panel');
+        const nextBtn = document.getElementById('next-trial-btn');
+
+        // パネルの内容描画
+        setupPanelContent(leftPanel, state.currentLayout[0]);
+        setupPanelContent(rightPanel, state.currentLayout[1]);
+
+        // 状態によるスタイル変更
+        if (state.isTrialFinished && state.appMode === 'trial') {
+            leftPanel.classList.add('disabled');
+            rightPanel.classList.add('disabled');
+            nextBtn.disabled = false;
+        } else {
+            leftPanel.classList.remove('disabled');
+            rightPanel.classList.remove('disabled');
+            nextBtn.disabled = true;
+        }
+
+        document.getElementById('display-trial').textContent = state.trialNumber;
+        document.getElementById('display-mode').textContent = state.appMode === 'free' ? '自由タップ' : '1試行1反応';
+    }
+
+    function setupPanelContent(panel, type) {
+        panel.innerHTML = "";
+        const img = document.createElement('img');
+        
+        if (type === "A") {
+            if (CONFIG.motherImageSrc) {
+                img.src = CONFIG.motherImageSrc;
+            } else {
+                // プレースホルダー (お母さん代わり: 顔文字)
+                panel.innerHTML = '<div class="placeholder">👩</div>';
+                return;
+            }
+        } else {
+            if (CONFIG.balloonImageSrc) {
+                img.src = CONFIG.balloonImageSrc;
+            } else {
+                // プレースホルダー (風船代わり: 🎈)
+                panel.innerHTML = '<div class="placeholder">🎈</div>';
+                return;
+            }
+        }
+        
+        img.onerror = () => {
+            panel.innerHTML = `<div class="placeholder">${type === "A" ? '👩' : '🎈'}</div>`;
+        };
+        panel.appendChild(img);
+    }
+
+    // --- アクション処理 ---
+    function onTap(side) {
+        if (state.appMode === 'trial' && state.isTrialFinished) return;
+
+        const tappedType = side === 'left' ? state.currentLayout[0] : state.currentLayout[1];
+        const isCorrect = tappedType === state.correctTarget;
+        const panel = document.getElementById(`${side}-panel`);
+
+        // カウント更新
+        state.tapCounts[tappedType]++;
+        updateStatSummary();
+
+        // ログ追加
+        addLog(tappedType, side, isCorrect);
+
+        // 正解時の演出
+        if (isCorrect) {
+            playPopSound();
+            panel.classList.add('bounce-animation');
+            setTimeout(() => {
+                panel.classList.remove('bounce-animation');
+            }, 400);
+        }
+
+        // モード処理
+        if (state.appMode === 'trial') {
+            state.isTrialFinished = true;
+            render();
+        } else {
+            // 自由モードでは試行番号を便宜上増やす
+            state.trialNumber++;
+            if (state.randomMode === 'every') {
+                shuffleLayout();
+            }
+            render();
+        }
+    }
+
+    function nextTrial() {
+        state.trialNumber++;
+        state.isTrialFinished = false;
+        if (state.randomMode === 'every') {
+            shuffleLayout();
+        }
+        render();
+    }
+
+    // --- ロジック補助 ---
+    function shuffleLayout() {
+        if (Math.random() > 0.5) {
+            state.currentLayout = ["A", "B"];
+        } else {
+            state.currentLayout = ["B", "A"];
+        }
+    }
+
+    function addLog(tappedType, side, isCorrect) {
+        const now = new Date();
+        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds()}`;
+        
+        const logEntry = {
+            trial: state.trialNumber,
+            time: timeStr,
+            layout: state.currentLayout.join('|'),
+            tapped: tappedType === "A" ? "お母さん" : "風船",
+            side: side === 'left' ? "左" : "右",
+            result: isCorrect ? "正解" : "無反応刺激"
+        };
+
+        state.logs.push(logEntry);
+        updateLogTable();
+    }
+
+    function updateLogTable() {
+        const tbody = document.querySelector('#log-table tbody');
+        tbody.innerHTML = "";
+        
+        // 新しいものから表示
+        [...state.logs].reverse().forEach(log => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${log.trial}</td>
+                <td>${log.time}</td>
+                <td>${log.layout}</td>
+                <td>${log.tapped}(${log.side})</td>
+                <td style="color: ${log.result === '正解' ? 'green' : 'red'}">${log.result}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function updateStatSummary() {
+        document.getElementById('stat-summary').textContent = `お母さん: ${state.tapCounts.A}回 | 風船: ${state.tapCounts.B}回`;
+        document.getElementById('display-correct-count').textContent = state.tapCounts[state.correctTarget];
+    }
+
+    // --- 音声生成 (Web Audio API) ---
+    function initAudio() {
+        if (!state.audioContext) {
+            state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    function playPopSound() {
+        if (!state.soundEnabled) return;
+        initAudio();
+
+        // 外部ファイルがあればそれを使う
+        if (CONFIG.popSoundSrc) {
+            const audio = new Audio(CONFIG.popSoundSrc);
+            audio.volume = 0.5;
+            audio.play().catch(e => console.log("Audio play failed", e));
+            return;
+        }
+
+        // なければシンセ音を生成 (短いポコッという音)
+        const ctx = state.audioContext;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+    }
+
+    // --- 管理者操作 ---
+    function setMode(m) {
+        state.appMode = m;
+        state.isTrialFinished = false;
+        render();
+    }
+
+    function setCorrectTarget(t) {
+        state.correctTarget = t;
+        alert(`正解を「${t === "A" ? "お母さん" : "風船"}」に設定しました。`);
+        render();
+    }
+
+    function setRandomMode(rm) {
+        state.randomMode = rm;
+        if (rm === 'fixed') {
+            state.currentLayout = ["A", "B"];
+        } else {
+            shuffleLayout();
+        }
+        render();
+    }
+
+    function toggleSound() {
+        state.soundEnabled = !state.soundEnabled;
+        document.getElementById('toggle-sound-btn').textContent = `音: ${state.soundEnabled ? 'ON' : 'OFF'}`;
+        if (state.soundEnabled) initAudio();
+    }
+
+    function resetApp() {
+        if (!confirm("すべての記録をリセットしますか？")) return;
+        state.trialNumber = 1;
+        state.tapCounts = { A: 0, B: 0 };
+        state.logs = [];
+        state.isTrialFinished = false;
+        updateLogTable();
+        updateStatSummary();
+        render();
+    }
+
+    function copyLogJSON() {
+        const json = JSON.stringify(state.logs, null, 2);
+        const el = document.createElement('textarea');
+        el.value = json;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        alert("ログをJSONとしてクリップボードにコピーしました。");
+    }
+
+</script>
+
+</body>
+</html>
