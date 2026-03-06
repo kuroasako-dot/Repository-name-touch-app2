@@ -9,7 +9,7 @@
         :root {
             --bg-color: #000000;
             --text-color: #ffffff;
-            --panel-bg: #1a1a1a;
+            --panel-bg: #ff6b6b; /* お母さんボタンの色 */
             --accent-color: #4CAF50;
             --ui-bg: #f0f0f0;
             --ui-text: #333333;
@@ -40,7 +40,7 @@
             padding: 10px;
             background: rgba(255, 255, 255, 0.1);
             text-align: center;
-            font-size: 1.2rem;
+            font-size: 1rem;
             display: flex;
             justify-content: space-around;
             align-items: center;
@@ -54,12 +54,13 @@
             align-items: center;
             position: relative;
             padding: 20px;
-            gap: 40px;
+            gap: 100px; /* パネルの間隔を広く設定 */
         }
 
         .panel-container {
-            flex: 1;
-            max-width: 400px;
+            flex: none; /* 割合指定ではなく固定的なサイズ感に */
+            width: 300px; /* パネルの横幅（少し小さめに） */
+            max-width: 35vw; 
             aspect-ratio: 1 / 1;
             display: flex;
             justify-content: center;
@@ -71,36 +72,37 @@
             width: 100%;
             height: 100%;
             background-color: var(--panel-bg);
-            border-radius: 20px;
+            border: 8px solid white; /* 白い枠線 */
+            border-radius: 40px;
             display: flex;
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            transition: transform 0.1s ease-out;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             overflow: hidden;
-            box-shadow: 0 0 20px rgba(255,255,255,0.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
 
         .image-panel img {
-            max-width: 90%;
-            max-height: 90%;
+            max-width: 85%;
+            max-height: 85%;
             object-fit: contain;
             pointer-events: none;
         }
 
         /* プレースホルダー表示用 */
         .placeholder {
-            font-size: 4rem;
+            font-size: 8rem; /* 絵文字を大きく */
         }
 
-        /* アニメーション：びょーん */
+        /* アニメーション：タップ時に1.5倍に拡大 */
         .bounce-animation {
-            transform: scale(1.15);
+            transform: scale(1.5) !important;
         }
 
         /* 試行終了時の無効化 */
         .disabled {
-            opacity: 0.8;
+            opacity: 0.5;
             cursor: default;
         }
 
@@ -111,7 +113,7 @@
             padding: 10px;
             max-height: 40vh;
             overflow-y: auto;
-            border-radius: 15px 15px 0 0;
+            border-radius: 20px 20px 0 0;
         }
 
         details summary {
@@ -195,10 +197,14 @@
         @media (max-width: 600px) {
             #main-stage {
                 flex-direction: column;
-                gap: 20px;
+                gap: 50px;
             }
             .panel-container {
-                max-width: 250px;
+                width: 200px;
+                max-width: 60vw;
+            }
+            .placeholder {
+                font-size: 5rem;
             }
         }
     </style>
@@ -206,7 +212,6 @@
 <body>
 
 <div id="info-bar">
-    <div>モード: <span id="display-mode">-</span></div>
     <div>試行: <span id="display-trial">1</span></div>
     <div>正反応: <span id="display-correct-count">0</span></div>
 </div>
@@ -251,7 +256,6 @@
                 <h4>システム</h4>
                 <button id="toggle-sound-btn" onclick="toggleSound()">音: ON</button>
                 <button class="reset" onclick="resetApp()">全リセット</button>
-                <button onclick="copyLogJSON()">JSONコピー</button>
             </div>
 
             <div class="setting-group" style="grid-column: 1 / -1;">
@@ -262,7 +266,6 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>時刻</th>
                                 <th>配置(左|右)</th>
                                 <th>タップ</th>
                                 <th>結果</th>
@@ -278,21 +281,19 @@
 </div>
 
 <script>
-    // --- 設定エリア ---
-    // ここを書き換えることで画像や音を差し替えられます
+    // --- 画像の変更方法 ---
+    // 下記の "" の間に画像のURL（https://...）を入力してください。
+    // 例: motherImageSrc: "https://example.com/mama.png",
     const CONFIG = {
-        motherImageSrc: "",  // お母さんの画像URL (例: "mother.jpg")
-        balloonImageSrc: "", // 風船の画像URL (例: "balloon.png")
-        popSoundSrc: "",     // ポップ音のURL (例: "pop.mp3")
+        motherImageSrc: "https://drive.google.com/file/d/1b9-NE_FGVfmxJXVlgIvVDzM-UFNNd8ft/view?usp=drive_link",  // お母さんの画像URL
+        balloonImageSrc: "https://drive.google.com/file/d/1ZEhOxYJzPU1wLVtTlqoVqyNM8bg3yz8n/view?usp=drive_link", // 風船の画像URL
         
-        // 初期設定
-        defaultCorrectTarget: "A", // A = お母さん, B = 風船
-        defaultRandomMode: "every", // "fixed", "start", "every"
-        defaultAppMode: "trial",    // "free" (自由), "trial" (1試行)
+        defaultCorrectTarget: "A", 
+        defaultRandomMode: "every", 
+        defaultAppMode: "trial",    
         soundEnabled: true
     };
 
-    // --- アプリの状態管理 ---
     let state = {
         appMode: CONFIG.defaultAppMode,
         randomMode: CONFIG.defaultRandomMode,
@@ -301,12 +302,11 @@
         trialNumber: 1,
         tapCounts: { A: 0, B: 0 },
         isTrialFinished: false,
-        currentLayout: ["A", "B"], // [左, 右]
+        currentLayout: ["A", "B"], 
         logs: [],
         audioContext: null
     };
 
-    // --- 初期化 ---
     window.onload = () => {
         applySettingsToUI();
         if (state.randomMode !== 'fixed') {
@@ -316,22 +316,18 @@
     };
 
     function applySettingsToUI() {
-        document.getElementById('display-mode').textContent = state.appMode === 'free' ? '自由タップ' : '1試行1反応';
         document.getElementById('toggle-sound-btn').textContent = `音: ${state.soundEnabled ? 'ON' : 'OFF'}`;
         updateStatSummary();
     }
 
-    // --- 表示の更新 ---
     function render() {
         const leftPanel = document.getElementById('left-panel');
         const rightPanel = document.getElementById('right-panel');
         const nextBtn = document.getElementById('next-trial-btn');
 
-        // パネルの内容描画
         setupPanelContent(leftPanel, state.currentLayout[0]);
         setupPanelContent(rightPanel, state.currentLayout[1]);
 
-        // 状態によるスタイル変更
         if (state.isTrialFinished && state.appMode === 'trial') {
             leftPanel.classList.add('disabled');
             rightPanel.classList.add('disabled');
@@ -343,38 +339,32 @@
         }
 
         document.getElementById('display-trial').textContent = state.trialNumber;
-        document.getElementById('display-mode').textContent = state.appMode === 'free' ? '自由タップ' : '1試行1反応';
     }
 
     function setupPanelContent(panel, type) {
         panel.innerHTML = "";
         const img = document.createElement('img');
         
+        // パネルの色分け（正解側を少し目立たせるなどの調整も可能）
+        panel.style.backgroundColor = (type === "A") ? "#ff6b6b" : "#4ecdc4";
+
         if (type === "A") {
             if (CONFIG.motherImageSrc) {
                 img.src = CONFIG.motherImageSrc;
+                panel.appendChild(img);
             } else {
-                // プレースホルダー (お母さん代わり: 顔文字)
                 panel.innerHTML = '<div class="placeholder">👩</div>';
-                return;
             }
         } else {
             if (CONFIG.balloonImageSrc) {
                 img.src = CONFIG.balloonImageSrc;
+                panel.appendChild(img);
             } else {
-                // プレースホルダー (風船代わり: 🎈)
                 panel.innerHTML = '<div class="placeholder">🎈</div>';
-                return;
             }
         }
-        
-        img.onerror = () => {
-            panel.innerHTML = `<div class="placeholder">${type === "A" ? '👩' : '🎈'}</div>`;
-        };
-        panel.appendChild(img);
     }
 
-    // --- アクション処理 ---
     function onTap(side) {
         if (state.appMode === 'trial' && state.isTrialFinished) return;
 
@@ -382,32 +372,24 @@
         const isCorrect = tappedType === state.correctTarget;
         const panel = document.getElementById(`${side}-panel`);
 
-        // カウント更新
         state.tapCounts[tappedType]++;
         updateStatSummary();
-
-        // ログ追加
         addLog(tappedType, side, isCorrect);
 
-        // 正解時の演出
         if (isCorrect) {
-            playPopSound();
+            playSuccessMelody();
             panel.classList.add('bounce-animation');
             setTimeout(() => {
                 panel.classList.remove('bounce-animation');
             }, 400);
         }
 
-        // モード処理
         if (state.appMode === 'trial') {
             state.isTrialFinished = true;
             render();
         } else {
-            // 自由モードでは試行番号を便宜上増やす
             state.trialNumber++;
-            if (state.randomMode === 'every') {
-                shuffleLayout();
-            }
+            if (state.randomMode === 'every') shuffleLayout();
             render();
         }
     }
@@ -415,34 +397,22 @@
     function nextTrial() {
         state.trialNumber++;
         state.isTrialFinished = false;
-        if (state.randomMode === 'every') {
-            shuffleLayout();
-        }
+        if (state.randomMode === 'every') shuffleLayout();
         render();
     }
 
-    // --- ロジック補助 ---
     function shuffleLayout() {
-        if (Math.random() > 0.5) {
-            state.currentLayout = ["A", "B"];
-        } else {
-            state.currentLayout = ["B", "A"];
-        }
+        state.currentLayout = Math.random() > 0.5 ? ["A", "B"] : ["B", "A"];
     }
 
     function addLog(tappedType, side, isCorrect) {
-        const now = new Date();
-        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds()}`;
-        
         const logEntry = {
             trial: state.trialNumber,
-            time: timeStr,
             layout: state.currentLayout.join('|'),
             tapped: tappedType === "A" ? "お母さん" : "風船",
             side: side === 'left' ? "左" : "右",
-            result: isCorrect ? "正解" : "無反応刺激"
+            result: isCorrect ? "正解" : "×"
         };
-
         state.logs.push(logEntry);
         updateLogTable();
     }
@@ -450,17 +420,9 @@
     function updateLogTable() {
         const tbody = document.querySelector('#log-table tbody');
         tbody.innerHTML = "";
-        
-        // 新しいものから表示
-        [...state.logs].reverse().forEach(log => {
+        [...state.logs].reverse().slice(0, 10).forEach(log => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${log.trial}</td>
-                <td>${log.time}</td>
-                <td>${log.layout}</td>
-                <td>${log.tapped}(${log.side})</td>
-                <td style="color: ${log.result === '正解' ? 'green' : 'red'}">${log.result}</td>
-            `;
+            tr.innerHTML = `<td>${log.trial}</td><td>${log.layout}</td><td>${log.tapped}</td><td style="color:${log.result === '正解' ? 'green' : 'red'}">${log.result}</td>`;
             tbody.appendChild(tr);
         });
     }
@@ -470,95 +432,49 @@
         document.getElementById('display-correct-count').textContent = state.tapCounts[state.correctTarget];
     }
 
-    // --- 音声生成 (Web Audio API) ---
     function initAudio() {
-        if (!state.audioContext) {
-            state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
+        if (!state.audioContext) state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    function playPopSound() {
+    function playSuccessMelody() {
         if (!state.soundEnabled) return;
         initAudio();
-
-        // 外部ファイルがあればそれを使う
-        if (CONFIG.popSoundSrc) {
-            const audio = new Audio(CONFIG.popSoundSrc);
-            audio.volume = 0.5;
-            audio.play().catch(e => console.log("Audio play failed", e));
-            return;
-        }
-
-        // なければシンセ音を生成 (短いポコッという音)
         const ctx = state.audioContext;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(400, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
-
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start();
-        osc.stop(ctx.currentTime + 0.1);
+        const melody = [
+            { f: 261.63, d: 0.2 }, { f: 329.63, d: 0.2 }, { f: 392.00, d: 0.2 },
+            { f: 523.25, d: 0.3 }, { f: 392.00, d: 0.2 }, { f: 440.00, d: 0.2 }, { f: 523.25, d: 0.6 }
+        ];
+        let startTime = ctx.currentTime;
+        melody.forEach(note => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(note.f, startTime);
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + note.d);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(startTime); osc.stop(startTime + note.d);
+            startTime += note.d + 0.05;
+        });
     }
 
-    // --- 管理者操作 ---
-    function setMode(m) {
-        state.appMode = m;
-        state.isTrialFinished = false;
-        render();
+    function setMode(m) { state.appMode = m; state.isTrialFinished = false; render(); }
+    function setCorrectTarget(t) { state.correctTarget = t; render(); }
+    function setRandomMode(rm) { 
+        state.randomMode = rm; 
+        state.currentLayout = (rm === 'fixed') ? ["A", "B"] : state.currentLayout;
+        render(); 
     }
-
-    function setCorrectTarget(t) {
-        state.correctTarget = t;
-        alert(`正解を「${t === "A" ? "お母さん" : "風船"}」に設定しました。`);
-        render();
-    }
-
-    function setRandomMode(rm) {
-        state.randomMode = rm;
-        if (rm === 'fixed') {
-            state.currentLayout = ["A", "B"];
-        } else {
-            shuffleLayout();
-        }
-        render();
-    }
-
     function toggleSound() {
         state.soundEnabled = !state.soundEnabled;
         document.getElementById('toggle-sound-btn').textContent = `音: ${state.soundEnabled ? 'ON' : 'OFF'}`;
-        if (state.soundEnabled) initAudio();
     }
-
     function resetApp() {
-        if (!confirm("すべての記録をリセットしますか？")) return;
-        state.trialNumber = 1;
-        state.tapCounts = { A: 0, B: 0 };
-        state.logs = [];
-        state.isTrialFinished = false;
-        updateLogTable();
-        updateStatSummary();
-        render();
+        if (!confirm("リセットしますか？")) return;
+        state.trialNumber = 1; state.tapCounts = { A: 0, B: 0 }; state.logs = []; state.isTrialFinished = false;
+        updateLogTable(); updateStatSummary(); render();
     }
-
-    function copyLogJSON() {
-        const json = JSON.stringify(state.logs, null, 2);
-        const el = document.createElement('textarea');
-        el.value = json;
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand('copy');
-        document.body.removeChild(el);
-        alert("ログをJSONとしてクリップボードにコピーしました。");
-    }
-
 </script>
 
 </body>
